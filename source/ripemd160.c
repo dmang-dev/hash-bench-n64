@@ -14,11 +14,6 @@
  */
 #include "hashes.h"
 
-/* PERF (N64): -O3 + unroll-loops on this hot file only. */
-#if defined(__GNUC__) && (defined(__N64__) || defined(__mips__))
-#  pragma GCC optimize ("O3,unroll-loops")
-#endif
-
 #define ROL32(x,n) (((uint32_t)(x) << (n)) | ((uint32_t)(x) >> (32u - (n))))
 
 /* Five round functions — one per round in each pipeline. */
@@ -68,13 +63,9 @@ static const uint32_t KR[5] = {
     0x50A28BE6UL, 0x5C4DD124UL, 0x6D703EF3UL, 0x7A6D76E9UL, 0x00000000UL
 };
 
-/* PERF (N64): see blake2s.c — M[16] local + hot/flatten so the twin
-** parallel pipelines (left+right) keep their state in registers
-** instead of reloading from BSS on every of the 80 rounds × 2 lanes. */
-static
-__attribute__((hot, flatten))
-void rmd_compress(uint32_t state[5], const uint8_t blk[64]) {
-    uint32_t M[16];
+static uint32_t M[16];
+
+static void rmd_compress(uint32_t state[5], const uint8_t blk[64]) {
     uint32_t al, bl, cl, dl, el;
     uint32_t ar, br, cr, dr, er;
     uint32_t T;

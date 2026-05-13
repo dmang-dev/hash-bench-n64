@@ -11,11 +11,6 @@
  */
 #include "hashes.h"
 
-/* PERF (N64): -O3 + unroll-loops on this hot file only. */
-#if defined(__GNUC__) && (defined(__N64__) || defined(__mips__))
-#  pragma GCC optimize ("O3,unroll-loops")
-#endif
-
 #define ROR32(x,n)  (((uint32_t)(x) >> (n)) | ((uint32_t)(x) << (32u - (n))))
 #define CH(x,y,z)   (((x) & (y)) ^ ((~(x)) & (z)))
 #define MAJ(x,y,z)  (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
@@ -43,11 +38,9 @@ static const uint32_t K2[64] = {
     0x90BEFFFAUL,0xA4506CEBUL,0xBEF9A3F7UL,0xC67178F2UL
 };
 
-/* PERF (N64): see blake2s.c — W[16] local + hot/flatten. */
-static
-__attribute__((hot, flatten))
-void sha256_compress(uint32_t state[8], const uint8_t blk[64]) {
-    uint32_t W[16];
+static uint32_t W[16];
+
+static void sha256_compress(uint32_t state[8], const uint8_t blk[64]) {
     uint32_t a, b, c, d, e, f, g, h, t1, t2;
     uint8_t  i;
 

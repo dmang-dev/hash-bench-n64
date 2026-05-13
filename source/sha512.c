@@ -13,11 +13,6 @@
  */
 #include "hashes.h"
 
-/* PERF (N64): -O3 + unroll-loops on this hot file only. */
-#if defined(__GNUC__) && (defined(__N64__) || defined(__mips__))
-#  pragma GCC optimize ("O3,unroll-loops")
-#endif
-
 #define ROR64(x,n) (((uint64_t)(x) >> (n)) | ((uint64_t)(x) << (64u - (n))))
 #define CH(x,y,z)   (((x) & (y)) ^ (~(x) & (z)))
 #define MAJ(x,y,z)  (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
@@ -51,17 +46,9 @@ static const uint64_t K[80] = {
     0x4CC5D4BECB3E42B6ULL, 0x597F299CFC657E2AULL, 0x5FCB6FAB3AD6FAECULL, 0x6C44198C4A475817ULL
 };
 
-/* PERF (N64): W[80] (640 B) was file-scope static for the SM83 build;
-** here we make it local so it lives on the stack — the actual write
-** pattern is sequential, so it stays cache-resident for the duration
-** of the round loop and gcc can keep the working state (a..h, T1, T2)
-** in registers without competing with W's BSS address.  And W[16:79]
-** is computed from W[0:15] so a smarter version could shrink to a
-** rolling 16-element ring buffer; left as future work. */
-static
-__attribute__((hot, flatten))
-void sha512_compress(uint64_t state[8], const uint8_t blk[128]) {
-    uint64_t W[80];
+static uint64_t W[80];   /* lift the message schedule off the stack */
+
+static void sha512_compress(uint64_t state[8], const uint8_t blk[128]) {
     uint64_t a, b, c, d, e, f, g, h, T1, T2;
     uint8_t  i;
 

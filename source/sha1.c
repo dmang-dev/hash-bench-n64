@@ -9,25 +9,15 @@
  */
 #include "hashes.h"
 
-/* PERF (N64): -O3 + unroll-loops on this hot file only. */
-#if defined(__GNUC__) && (defined(__N64__) || defined(__mips__))
-#  pragma GCC optimize ("O3,unroll-loops")
-#endif
-
 #define ROL32(x,n) (((uint32_t)(x) << (n)) | ((uint32_t)(x) >> (32u - (n))))
 
 static const uint32_t K1[4] = {
     0x5A827999UL, 0x6ED9EBA1UL, 0x8F1BBCDCUL, 0xCA62C1D6UL
 };
 
-/* PERF (N64): W[16] was file-scope static for the SM83 port (where every
-** byte of stack matters).  On VR4300 making it local lets gcc keep the
-** schedule in registers across the 80-round loop instead of round-tripping
-** through BSS — measurable jump on Ares. */
-static
-__attribute__((hot, flatten))
-void sha1_compress(uint32_t state[5], const uint8_t *blk) {
-    uint32_t W[16];
+static uint32_t W[16];
+
+static void sha1_compress(uint32_t state[5], const uint8_t *blk) {
     uint32_t a, b, c, d, e, temp, f, k;
     uint8_t  i;
 

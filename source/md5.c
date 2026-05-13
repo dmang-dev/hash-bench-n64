@@ -9,11 +9,6 @@
 #include "hashes.h"
 #include <string.h>
 
-/* PERF (N64): -O3 + unroll-loops on this hot file only. */
-#if defined(__GNUC__) && (defined(__N64__) || defined(__mips__))
-#  pragma GCC optimize ("O3,unroll-loops")
-#endif
-
 #define ROL32(x,n) (((uint32_t)(x) << (n)) | ((uint32_t)(x) >> (32u - (n))))
 
 static const uint8_t S[64] = {
@@ -42,11 +37,10 @@ static const uint32_t K[64] = {
     0xF7537E82UL,0xBD3AF235UL,0x2AD7D2BBUL,0xEB86D391UL
 };
 
-/* PERF (N64): see blake2s.c — M[16] local + hot/flatten. */
-static
-__attribute__((hot, flatten))
-void md5_compress(uint32_t state[4], const uint8_t blk[64]) {
-    uint32_t M[16];
+/* Like SHA-1's W[], lifted off the stack to keep MD5 cheap on the GB. */
+static uint32_t M[16];
+
+static void md5_compress(uint32_t state[4], const uint8_t blk[64]) {
     uint32_t a = state[0], b = state[1], c = state[2], d = state[3];
     uint32_t f, g, temp;
     uint8_t  i;
