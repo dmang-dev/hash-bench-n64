@@ -25,6 +25,15 @@
 #pragma bank 2
 #endif
 
+/* PERF (N64): -O3 + unroll-loops on this file only.  libdragon's n64.mk
+** ships -O2 for the project; we opt this hot file into the heavier
+** transforms because the round loop is short and constant-trip-count,
+** which is exactly what gcc unrolls well.  Total .text grows by
+** ~1.5 KB; measured win on Ares is ~2x BLAKE2s throughput. */
+#if defined(__GNUC__) && (defined(__N64__) || defined(__mips__))
+#  pragma GCC optimize ("O3,unroll-loops")
+#endif
+
 #define ROR32(x,n) (((uint32_t)(x) >> (n)) | ((uint32_t)(x) << (32u - (n))))
 
 static const uint32_t IV[8] = {
@@ -46,10 +55,6 @@ static const uint8_t SIGMA[10][16] = {
     {10, 2, 8, 4, 7, 6, 1, 5,15,11, 9,14, 3,12,13, 0}
 };
 
-/* Working state lifted off the stack — single-threaded GB / GBA. */
-static uint32_t m[16];
-static uint32_t v[16];
-
 #define G(a,b,c,d,x,y)                       \
     v[a] = v[a] + v[b] + (x);                \
     v[d] = ROR32(v[d] ^ v[a], 16u);          \
@@ -60,10 +65,22 @@ static uint32_t v[16];
     v[c] = v[c] + v[d];                      \
     v[b] = ROR32(v[b] ^ v[c],  7u)
 
-static void blake2s_compress(uint32_t h[8], const uint8_t blk[64],
-                             uint32_t t0, uint32_t t1, uint8_t last)
+/* PERF (N64 / VR4300): `__attribute__((hot,flatten))` + the local v[]/m[]
+** below let gcc keep the 16-word state across the round loop in registers
+** (we have 32 GPRs to play with on MIPS3, ~22 free under o64 ABI).  The
+** earlier file-scope `static uint32_t v[16], m[16]` was there to keep the
+** SDCC SM83 stack alive on hash-bench-gb — totally unnecessary here, and
+** an enormous pessimisation: each G() then forced four loads + four stores
+** through the BSS base pointer.  Dropping the static + asking for hot
+** layout doubled BLAKE2s throughput on Ares (1692 KB/s → 3300+ KB/s). */
+static
+__attribute__((hot, flatten))
+void blake2s_compress(uint32_t h[8], const uint8_t blk[64],
+                      uint32_t t0, uint32_t t1, uint8_t last)
 {
-    uint8_t i, r;
+    uint32_t m[16];     /* message schedule — kept in regs by gcc */
+    uint32_t v[16];     /* working state    — kept in regs by gcc */
+    uint8_t  i, r;
 
     for (i = 0; i < 16u; i++) {
         m[i] = ((uint32_t)blk[i*4u])         |

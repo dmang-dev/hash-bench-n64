@@ -12,6 +12,11 @@
  */
 #include "hashes.h"
 
+/* PERF (N64): -O3 + unroll-loops on this hot file only. */
+#if defined(__GNUC__) && (defined(__N64__) || defined(__mips__))
+#  pragma GCC optimize ("O3,unroll-loops")
+#endif
+
 #define ROL32(x,n) (((uint32_t)(x) << (n)) | ((uint32_t)(x) >> (32u - (n))))
 
 #define F(x,y,z)  (((x) & (y)) | ((~(x)) & (z)))
@@ -22,10 +27,12 @@
 #define GG(a,b,c,d,k,s) (a) = ROL32((a) + G((b),(c),(d)) + M[(k)] + 0x5A827999UL,   (s))
 #define HH(a,b,c,d,k,s) (a) = ROL32((a) + H((b),(c),(d)) + M[(k)] + 0x6ED9EBA1UL,   (s))
 
-/* Block message words — like SHA-1's W[], lifted off the stack. */
-static uint32_t M[16];
-
-static void md4_compress(uint32_t state[4], const uint8_t blk[64]) {
+/* PERF (N64): see blake2s.c — M[16] local + hot/flatten so gcc keeps it
+** in MIPS GPRs across the three rounds instead of going through BSS. */
+static
+__attribute__((hot, flatten))
+void md4_compress(uint32_t state[4], const uint8_t blk[64]) {
+    uint32_t M[16];
     uint32_t a, b, c, d;
     uint8_t  i;
 
