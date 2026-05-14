@@ -1,5 +1,10 @@
 # hash-bench-n64
 
+> Part of the **[hash-bench](https://github.com/dmang-dev/hash-bench)**
+> cross-platform suite — the same hash-algorithm sources timed natively
+> on seven Nintendo consoles (NES · GB/GBC · GBA · NDS · DSi · 3DS · N64).
+> See also the experimental [hash-bench-n64-optimized](https://github.com/dmang-dev/hash-bench-n64-optimized) perf sibling.
+
 Native **Nintendo 64** hashing-algorithm benchmark — **32 algorithms**
 on a 93.75 MHz VR4300 (MIPS3, 64-bit) with `get_ticks_us()`
 microsecond timing, displayed in libdragon's 64×28 software console.
